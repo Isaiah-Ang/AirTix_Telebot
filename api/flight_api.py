@@ -9,7 +9,7 @@ load_dotenv()
 def access_token_post_request():
     url = 'https://test.api.amadeus.com/v1/security/oauth2/token'
     header = {'Content-Type': 'application/x-www-form-urlencoded', }
-    data_code = f'grant_type=client_credentials&client_id={os.getenv("amadeus_client_id")}&client_secret={os.getenv("amadeus_secret_key")}'
+    data_code = f'grant_type=client_credentials&client_id={os.getenv("CLIENT_ID")}&client_secret={os.getenv("CLIENT_SECRET")}'
 
     access_token = requests.post(url=url, headers=header, data=data_code)
 
@@ -18,7 +18,7 @@ def access_token_post_request():
     return response_access_token
 
 
-def get_flight_offers(response_access_token):
+def get_flight_offers(origin: str, destination: str, response_access_token: str):
     flight_offers_url = 'https://test.api.amadeus.com/v2/shopping/flight-offers'
     header = {'Authorization': f"Bearer {response_access_token}", }
     data_code = {
@@ -36,10 +36,11 @@ def get_flight_offers(response_access_token):
 # Function currently not supported
 
 
-def flight_cheapest_date(response_access_token):
+def flight_cheapest_date(origin: str, destination: str, response_access_token: str):
     flight_cheapest_date_url = 'https://test.api.amadeus.com/v1/shopping/flight-dates'
     header = {'Authorization': f"Bearer {response_access_token}", }
     data_code = {
+        # Plug origin & destination variables here
         'origin': 'SYD',
         'destination': 'BKK',
     }
