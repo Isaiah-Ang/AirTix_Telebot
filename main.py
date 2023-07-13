@@ -1,5 +1,6 @@
 import asyncio
 from telegram import *
+# from telegram.ext import ApplicationBuilder, CallbackContext, filters, ConversationHandler, CommandHandler, MessageHandler
 from telegram.ext import *
 import Constants as keys
 import logging
@@ -9,7 +10,7 @@ logging.basicConfig(
     level=logging.INFO
 )
 
-CHOOSING, CHOSEN, TYPING_CHOICE = range(3)
+ARRIVAL_COUNTRY, ARRIVAL_CITY, DEPARTURE_COUNTRY, DEPARTURE_CITY = range(4)
 
 details = {}
 
@@ -20,29 +21,50 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 
-async def new_flight(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def depart_country(update: Update, context: CallbackContext):
     await update.message.reply_text(
         text="Input your departure country"
     )
 
-    return CHOOSING
+    return DEPARTURE_COUNTRY
 
 
-async def arrival_loc(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def depart_city(update: Update, context: CallbackContext):
     text = update.message.text
-    details['departure'] = text
+    details['departure_country'] = text
+    await update.message.reply_text(
+        text="Input your departure city"
+    )
+
+    return DEPARTURE_CITY
+
+
+async def arrival_country(update: Update, context: CallbackContext):
+    text = update.message.text
+    details['departure_city'] = text
+    # Add an API call here to retrieve airports within the country
     await update.message.reply_text(
         text='Input your arrival country'
     )
 
-    return CHOSEN
+    return ARRIVAL_COUNTRY
 
 
-async def confirmation(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def arrival_city(update: Update, context: CallbackContext):
     text = update.message.text
-    details['arrival'] = text
+    details['arrival_country'] = text
+    await update.message.reply_text(
+        text="Input your arrival city"
+    )
+
+    return ARRIVAL_CITY
+
+
+async def confirmation(update: Update, context: CallbackContext):
+    text = update.message.text
+    details['arrival_city'] = text
     await context.bot.send_message(
-        chat_id=update.effective_chat.id, text=f'You have selected: \nDeparture: {details["departure"]} \nArrival: {details["arrival"]}'
+        chat_id=update.effective_chat.id, text=f'You have selected: \nDeparture: {details["departure_city"]}, {details["departure_country"]} \nArrival: {details["arrival_city"], {details["arrival_country"]}}'
     )
 
 
@@ -52,7 +74,7 @@ async def cancel(update: Update, context: CallbackContext):
     return ConversationHandler.END
 
 
-async def unknown(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def unknown(update: Update, context: CallbackContext):
     await context.bot.send_message(
         chat_id=update.effective_chat.id, text="Sorry, I didn't understand what you are trying to say."
     )
@@ -64,20 +86,27 @@ if __name__ == '__main__':
     # application.add_handler(ConversationHandler('new', new_flight))
 
     conv_handler = ConversationHandler(
-        entry_points=[CommandHandler('new', new_flight)],
+        entry_points=[CommandHandler('new', depart_country)],
         states={
-            CHOOSING: [
+            DEPARTURE_COUNTRY: [
                 MessageHandler(
                     filters.TEXT & ~(filters.COMMAND |
                                      filters.Regex("^Done$")),
-                    arrival_loc,
+                    depart_city,
                 )
             ],
-            CHOSEN: [
+            DEPARTURE_CITY: [
                 MessageHandler(
                     filters.TEXT & ~(filters.COMMAND |
                                      filters.Regex("^Done$")),
-                    confirmation,
+                    arrival_country,
+                )
+            ],
+            ARRIVAL_COUNTRY: [
+                MessageHandler(
+                    filters.TEXT & ~(filters.COMMAND |
+                                     filters.Regex("^Done$")),
+                    arrival_city,
                 )
             ]
         },
