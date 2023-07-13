@@ -2,8 +2,11 @@ import asyncio
 from telegram import *
 # from telegram.ext import ApplicationBuilder, CallbackContext, filters, ConversationHandler, CommandHandler, MessageHandler
 from telegram.ext import *
-import Constants as keys
 import logging
+import os
+from dotenv import load_dotenv, dotenv_values
+
+load_dotenv()
 
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -80,7 +83,7 @@ async def unknown(update: Update, context: CallbackContext):
     )
 
 if __name__ == '__main__':
-    application = ApplicationBuilder().token(keys.API_KEY).build()
+    application = ApplicationBuilder().token(os.GETENV("API_KEY")).build()
 
     application.add_handler(CommandHandler('start', start))
     # application.add_handler(ConversationHandler('new', new_flight))
