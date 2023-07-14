@@ -1,12 +1,16 @@
 import json
 import requests
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 
 def get_airports_json():
     airport_json_url = 'https://travelpayouts-travelpayouts-flight-data-v1.p.rapidapi.com/data/en-GB/airports.json'
     header = {
-        'X-Access-Token': '9ae0f41c70f0955ad052f47fa2c20c32',
-        'X-RapidAPI-Key': '7531220fafmsh31047231a74586ap14d55bjsn27c675ca9aea',
+        'X-Access-Token': os.getenv('X_ACCESS_API'),
+        'X-RapidAPI-Key': os.getenv('X_RAPIDAPI_KEY'),
         'X-RapidAPI-Host': 'travelpayouts-travelpayouts-flight-data-v1.p.rapidapi.com'
     }
     airport_json_response = requests.get(
@@ -22,8 +26,8 @@ def get_airports_json():
 def get_cities_json():
     city_json_url = 'https://travelpayouts-travelpayouts-flight-data-v1.p.rapidapi.com/data/en-GB/cities.json'
     header = {
-        'X-Access-Token': '9ae0f41c70f0955ad052f47fa2c20c32',
-        'X-RapidAPI-Key': '7531220fafmsh31047231a74586ap14d55bjsn27c675ca9aea',
+        'X-Access-Token': os.getenv('X_ACCESS_API'),
+        'X-RapidAPI-Key': os.getenv('X_RAPIDAPI_KEY'),
         'X-RapidAPI-Host': 'travelpayouts-travelpayouts-flight-data-v1.p.rapidapi.com'
     }
     city_json_response = requests.get(
