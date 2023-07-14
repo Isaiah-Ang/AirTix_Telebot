@@ -20,13 +20,9 @@ def convert_city(city, country):
     city_code = str()
     for x in city_data:
         if x['name_translations']['en'] == city and x['country_code'] == country:
-            # print(x['name_translations']['en'])
-            # city_code.append(x['name_translations']["en"])
             city_code = x['code']
 
-    print(city_code)
     return convert_airport_code(city_code)
-    # print(len(city_data))
 
 
 def convert_airport_code(city):
@@ -36,10 +32,4 @@ def convert_airport_code(city):
             airport_code.append(
                 {"name": x['name_translations']['en'], "code": x['code']})
 
-    print(airport_code)
     return airport_code
-
-
-# convert_country_code('Melbourne', 'Australia')
-# convert_airport_code()
-# convert_city()

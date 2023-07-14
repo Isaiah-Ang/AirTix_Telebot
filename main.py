@@ -1,10 +1,10 @@
 import asyncio
 from telegram import *
-# from telegram.ext import ApplicationBuilder, CallbackContext, filters, ConversationHandler, CommandHandler, MessageHandler
 from telegram.ext import *
 import logging
 import os
 from dotenv import load_dotenv, dotenv_values
+from api import flight_api, codes
 
 load_dotenv()
 
@@ -13,9 +13,12 @@ logging.basicConfig(
     level=logging.INFO
 )
 
-ARRIVAL_COUNTRY, ARRIVAL_CITY, DEPARTURE_COUNTRY, DEPARTURE_CITY = range(4)
+START, DESTINATION_COUNTRY, DESTINATION_CITY, SELECT_ORIGIN_AIRPORT, ORIGIN_COUNTRY, ORIGIN_CITY, SELECT_DESTINATION_AIRPORT, END, CONFIRM, RETRY = range(
+    10)
 
 details = {}
+
+# Start file
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -23,94 +26,194 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         chat_id=update.effective_chat.id, text="I'm a bot, please talk to me!"
     )
 
+# country_select
 
-async def depart_country(update: Update, context: CallbackContext):
+
+async def origin_country(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        text="Input your departure country"
+        text="Input your origin country"
     )
 
-    return DEPARTURE_COUNTRY
+    return ORIGIN_COUNTRY
 
 
-async def depart_city(update: Update, context: CallbackContext):
+async def start_over_origin(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+
+    await query.answer()
+
+    await query.edit_message_text(
+        text="Input your origin country"
+    )
+
+    return ORIGIN_COUNTRY
+
+
+async def origin_city(update: Update, context: CallbackContext):
     text = update.message.text
-    details['departure_country'] = text
+    details['origin_country'] = text
     await update.message.reply_text(
-        text="Input your departure city"
+        text="Input your origin city"
     )
 
-    return DEPARTURE_CITY
+    return ORIGIN_CITY
 
 
-async def arrival_country(update: Update, context: CallbackContext):
+async def origin_airport(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text
-    details['departure_city'] = text
-    # Add an API call here to retrieve airports within the country
+    details['origin_city'] = text
+
+    airport = codes.convert_country_code(
+        details['origin_city'], details['origin_country'])
+
+    buttons = list()
+
+    for x in airport:
+        buttons.append([InlineKeyboardButton(
+            f"{x['name']} ({x['code']})", callback_data=f"{x['code']}/{str(SELECT_ORIGIN_AIRPORT)}")])
+
     await update.message.reply_text(
-        text='Input your arrival country'
+        text=f'Please choose your airport',
+        reply_markup=InlineKeyboardMarkup(buttons)
     )
 
-    return ARRIVAL_COUNTRY
+    return SELECT_ORIGIN_AIRPORT
+
+# async def origin_airport_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
-async def arrival_city(update: Update, context: CallbackContext):
+async def destination_country(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+
+    await query.answer()
+    details['origin_airport'] = (query.data).split('/')[0]
+    print(query.data)
+
+    await update.callback_query.edit_message_text(
+        text=f"Input your destination country"
+    )
+
+    return DESTINATION_COUNTRY
+
+
+async def destination_city(update: Update, context: CallbackContext):
     text = update.message.text
-    details['arrival_country'] = text
+    details['destination_country'] = text
     await update.message.reply_text(
-        text="Input your arrival city"
+        text="Input your destination city"
     )
 
-    return ARRIVAL_CITY
+    return DESTINATION_CITY
 
 
-async def confirmation(update: Update, context: CallbackContext):
+async def destination_airport(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text
-    details['arrival_city'] = text
-    await context.bot.send_message(
-        chat_id=update.effective_chat.id, text=f'You have selected: \nDeparture: {details["departure_city"]}, {details["departure_country"]} \nArrival: {details["arrival_city"], {details["arrival_country"]}}'
+    details['destination_city'] = text
+
+    airport = codes.convert_country_code(
+        details['destination_city'], details['destination_country'])
+
+    buttons = list()
+
+    for x in airport:
+        buttons.append([InlineKeyboardButton(
+            f"{x['name']} ({x['code']})", callback_data=f"{x['code']}/{str(SELECT_DESTINATION_AIRPORT)}")])
+
+    await update.message.reply_text(
+        text=f'Please choose your airport',
+        reply_markup=InlineKeyboardMarkup(buttons)
     )
 
+    return SELECT_DESTINATION_AIRPORT
 
-async def cancel(update: Update, context: CallbackContext):
+
+async def confirmation(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+
+    await query.answer()
+    details['destination_airport'] = (query.data).split('/')[0]
+
+    buttons = [
+        [
+            InlineKeyboardButton("Yes", callback_data=str(CONFIRM))
+        ],
+        [
+            InlineKeyboardButton("Retry", callback_data=str(RETRY))
+        ]
+    ]
+    await update.callback_query.edit_message_text(
+        text=f'You have selected: \nFrom\n{details["origin_city"]}, {details["origin_country"]} ({details["origin_airport"]})\n\nTo\n{details["destination_city"]}, {details["destination_country"]} ({details["destination_airport"]})\nIs that correct?',
+        reply_markup=InlineKeyboardMarkup(buttons)
+    )
+
+    return END
+# cancel
+
+
+async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         'Name Conversation cancelled by user. Bye. Send /new to start again')
     return ConversationHandler.END
 
+# unknown
 
-async def unknown(update: Update, context: CallbackContext):
+
+async def unknown(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await context.bot.send_message(
         chat_id=update.effective_chat.id, text="Sorry, I didn't understand what you are trying to say."
     )
 
 if __name__ == '__main__':
-    application = ApplicationBuilder().token(os.GETENV("API_KEY")).build()
+    application = ApplicationBuilder().token(os.getenv("API_KEY")).build()
 
     application.add_handler(CommandHandler('start', start))
     # application.add_handler(ConversationHandler('new', new_flight))
 
     conv_handler = ConversationHandler(
-        entry_points=[CommandHandler('new', depart_country)],
+        entry_points=[CommandHandler('new', origin_country)],
         states={
-            DEPARTURE_COUNTRY: [
+            ORIGIN_COUNTRY: [
                 MessageHandler(
                     filters.TEXT & ~(filters.COMMAND |
                                      filters.Regex("^Done$")),
-                    depart_city,
+                    origin_city,
                 )
             ],
-            DEPARTURE_CITY: [
+            ORIGIN_CITY: [
                 MessageHandler(
                     filters.TEXT & ~(filters.COMMAND |
                                      filters.Regex("^Done$")),
-                    arrival_country,
+                    origin_airport,
                 )
             ],
-            ARRIVAL_COUNTRY: [
+            SELECT_ORIGIN_AIRPORT: [
+                CallbackQueryHandler(
+                    destination_country, pattern="^[a-zA-Z]{3}\/" + str(SELECT_ORIGIN_AIRPORT) + "$")
+            ],
+            DESTINATION_COUNTRY: [
                 MessageHandler(
                     filters.TEXT & ~(filters.COMMAND |
                                      filters.Regex("^Done$")),
-                    arrival_city,
+                    destination_city,
                 )
+            ],
+            DESTINATION_CITY: [
+                MessageHandler(
+                    filters.TEXT & ~(filters.COMMAND |
+                                     filters.Regex("^Done$")),
+                    destination_airport
+                )
+            ],
+            SELECT_DESTINATION_AIRPORT: [
+                CallbackQueryHandler(
+                    confirmation, pattern="^[a-zA-Z]{3}\/" +
+                    str(SELECT_DESTINATION_AIRPORT) + "$"
+                )
+            ],
+            END: [
+                # CallbackQueryHandler(get_prices), pattern="^" + str(CONFIRM) + "$"
+                CallbackQueryHandler(
+                    start_over_origin, pattern="^" + str(RETRY) + "$")
             ]
         },
         fallbacks=[CommandHandler('cancel', cancel)]
