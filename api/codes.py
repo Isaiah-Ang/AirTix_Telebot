@@ -17,19 +17,16 @@ def convert_country_code(city, country):
 
 
 def convert_city(city, country):
-    city_code = str()
-    for x in city_data:
-        if x['name_translations']['en'] == city and x['country_code'] == country:
-            city_code = x['code']
+    city_index = list(filter(lambda x: city_data[x]['name_translations']['en'] ==
+                      city and city_data[x]['country_code'] == country, range(len(city_data))))
+    city_code = city_data[city_index[0]]['code']
+
+    # Check if the city exists
 
     return convert_airport_code(city_code)
 
 
 def convert_airport_code(city):
-    airport_code = list()
-    for x in airport_data:
-        if x['city_code'] == city:
-            airport_code.append(
-                {"name": x['name_translations']['en'], "code": x['code']})
-
+    airport_code = [{"name": x['name_translations']['en'], "code": x['code']}
+                    for x in airport_data if x['city_code'] == city]
     return airport_code
