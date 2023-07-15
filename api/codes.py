@@ -1,5 +1,4 @@
 import json
-import requests
 import country_converter as coco
 
 cc = coco.CountryConverter()
