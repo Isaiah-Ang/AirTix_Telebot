@@ -73,8 +73,8 @@ def non_stop_tickets():
                    "return_date": "2023-09-19", "depart_date": "2023-09-02", "currency": "RUB"}
 
     headers = {
-        "X-Access-Token": f'{os.getenv("travel_payout_token")}',
-        "X-RapidAPI-Key": f'{os.getenv("rapid_api_key")}',
+        "X-Access-Token": f'{os.getenv("TRAVELPAYOUTSAPI_KEY")}',
+        "X-RapidAPI-Key": f'{os.getenv("RAPIDAPI_KEY")}',
         "X-RapidAPI-Host": "travelpayouts-travelpayouts-flight-data-v1.p.rapidapi.com"
     }
 

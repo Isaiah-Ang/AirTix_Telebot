@@ -66,11 +66,7 @@ async def origin_airport(update: Update, context: ContextTypes.DEFAULT_TYPE):
     airport = codes.convert_country_code(
         details['origin_city'], details['origin_country'])
 
-    buttons = list()
-
-    for x in airport:
-        buttons.append([InlineKeyboardButton(
-            f"{x['name']} ({x['code']})", callback_data=f"{x['code']}/{str(SELECT_ORIGIN_AIRPORT)}")])
+    buttons = [[InlineKeyboardButton(f"{x['name']} ({x['code']})", callback_data=f"{x['code']}")] for x in airport]
 
     await update.message.reply_text(
         text=f'Please choose your airport',
@@ -86,8 +82,8 @@ async def destination_country(update: Update, context: ContextTypes.DEFAULT_TYPE
     query = update.callback_query
 
     await query.answer()
+    #Split the callback data to retrieve the 3 digit airport code
     details['origin_airport'] = (query.data).split('/')[0]
-    print(query.data)
 
     await update.callback_query.edit_message_text(
         text=f"Input your destination country"
@@ -113,11 +109,7 @@ async def destination_airport(update: Update, context: ContextTypes.DEFAULT_TYPE
     airport = codes.convert_country_code(
         details['destination_city'], details['destination_country'])
 
-    buttons = list()
-
-    for x in airport:
-        buttons.append([InlineKeyboardButton(
-            f"{x['name']} ({x['code']})", callback_data=f"{x['code']}/{str(SELECT_DESTINATION_AIRPORT)}")])
+    buttons = [[InlineKeyboardButton(f"{x['name']} ({x['code']})", callback_data=f"{x['code']}")] for x in airport]
 
     await update.message.reply_text(
         text=f'Please choose your airport',
@@ -131,6 +123,7 @@ async def confirmation(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
 
     await query.answer()
+    #Split the callback data to retrieve the 3 digit airport code
     details['destination_airport'] = (query.data).split('/')[0]
 
     buttons = [
@@ -167,7 +160,6 @@ if __name__ == '__main__':
     application = ApplicationBuilder().token(os.getenv("API_KEY")).build()
 
     application.add_handler(CommandHandler('start', start))
-    # application.add_handler(ConversationHandler('new', new_flight))
 
     conv_handler = ConversationHandler(
         entry_points=[CommandHandler('new', origin_country)],
