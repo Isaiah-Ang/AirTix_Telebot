@@ -9,7 +9,7 @@ load_dotenv()
 def access_token_post_request():
     url = 'https://test.api.amadeus.com/v1/security/oauth2/token'
     header = {'Content-Type': 'application/x-www-form-urlencoded', }
-    data_code = f'grant_type=client_credentials&client_id={os.getenv("amadeus_client_id")}&client_secret={os.getenv("amadeus_secret_key")}'
+    data_code = f'grant_type=client_credentials&client_id={os.getenv("CLIENT_ID")}&client_secret={os.getenv("CLIENT_SECRET")}'
 
     access_token = requests.post(url=url, headers=header, data=data_code)
 
@@ -18,7 +18,7 @@ def access_token_post_request():
     return response_access_token
 
 
-def get_flight_offers(response_access_token):
+def get_flight_offers(origin: str, destination: str, response_access_token: str):
     flight_offers_url = 'https://test.api.amadeus.com/v2/shopping/flight-offers'
     header = {'Authorization': f"Bearer {response_access_token}", }
     data_code = {
@@ -36,10 +36,11 @@ def get_flight_offers(response_access_token):
 # Function currently not supported
 
 
-def flight_cheapest_date(response_access_token):
+def flight_cheapest_date(origin: str, destination: str, response_access_token: str):
     flight_cheapest_date_url = 'https://test.api.amadeus.com/v1/shopping/flight-dates'
     header = {'Authorization': f"Bearer {response_access_token}", }
     data_code = {
+        # Plug origin & destination variables here
         'origin': 'SYD',
         'destination': 'BKK',
     }
@@ -56,8 +57,8 @@ def cheapest_tickets(origin_country_code: str, destination_country_code: str, de
     data_code = {"origin": "SIN", "page": "None",
                  "currency": "USD", "destination": "ICN"}
     headers = {
-        "X-Access-Token": f'{os.getenv("travel_payout_token")}',
-        "X-RapidAPI-Key": f'{os.getenv("rapid_api_key")}',
+        "X-Access-Token": f'{os.getenv("TRAVELPAYOUTSAPI_KEY")}',
+        "X-RapidAPI-Key": f'{os.getenv("RAPIDAPI_KEY")}',
         "X-RapidAPI-Host": "travelpayouts-travelpayouts-flight-data-v1.p.rapidapi.com"
     }
     response = requests.get(cheapest_tickets_url,
@@ -72,8 +73,8 @@ def non_stop_tickets():
                    "return_date": "2023-09-19", "depart_date": "2023-09-02", "currency": "RUB"}
 
     headers = {
-        "X-Access-Token": f'{os.getenv("travel_payout_token")}',
-        "X-RapidAPI-Key": f'{os.getenv("rapid_api_key")}',
+        "X-Access-Token": f'{os.getenv("TRAVELPAYOUTSAPI_KEY")}',
+        "X-RapidAPI-Key": f'{os.getenv("RAPIDAPI_KEY")}',
         "X-RapidAPI-Host": "travelpayouts-travelpayouts-flight-data-v1.p.rapidapi.com"
     }
 
