@@ -66,7 +66,7 @@ async def origin_airport(update: Update, context: ContextTypes.DEFAULT_TYPE):
     airport = codes.convert_country_code(
         details['origin_city'], details['origin_country'])
 
-    buttons = [[InlineKeyboardButton(f"{x['name']} ({x['code']})", callback_data=f"{x['code']}")] for x in airport]
+    buttons = [[InlineKeyboardButton(f"{x['name']} ({x['code']})", callback_data=f"{x['code']}/{SELECT_ORIGIN_AIRPORT}")] for x in airport]
 
     await update.message.reply_text(
         text=f'Please choose your airport',
@@ -109,7 +109,7 @@ async def destination_airport(update: Update, context: ContextTypes.DEFAULT_TYPE
     airport = codes.convert_country_code(
         details['destination_city'], details['destination_country'])
 
-    buttons = [[InlineKeyboardButton(f"{x['name']} ({x['code']})", callback_data=f"{x['code']}")] for x in airport]
+    buttons = [[InlineKeyboardButton(f"{x['name']} ({x['code']})", callback_data=f"{x['code']}/{SELECT_DESTINATION_AIRPORT}")] for x in airport]
 
     await update.message.reply_text(
         text=f'Please choose your airport',
