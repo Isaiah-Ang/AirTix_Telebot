@@ -57,8 +57,8 @@ def cheapest_tickets(origin_country_code: str, destination_country_code: str, de
     data_code = {"origin": "SIN", "page": "None",
                  "currency": "USD", "destination": "ICN"}
     headers = {
-        "X-Access-Token": f'{os.getenv("travel_payout_token")}',
-        "X-RapidAPI-Key": f'{os.getenv("rapid_api_key")}',
+        "X-Access-Token": f'{os.getenv("TRAVELPAYOUTSAPI_KEY")}',
+        "X-RapidAPI-Key": f'{os.getenv("RAPIDAPI_KEY")}',
         "X-RapidAPI-Host": "travelpayouts-travelpayouts-flight-data-v1.p.rapidapi.com"
     }
     response = requests.get(cheapest_tickets_url,
