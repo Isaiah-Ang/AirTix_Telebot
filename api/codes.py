@@ -34,6 +34,3 @@ def convert_airport_code(city) -> AirportData:
     airport_code = [{"name": x['name_translations']['en'], "code": x['code']}
                     for x in airport_data if x['city_code'] == city]
     return airport_code
-
-
-convert_country_code('Melbourne', 'Australia')
