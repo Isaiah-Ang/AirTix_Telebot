@@ -54,8 +54,8 @@ def flight_cheapest_date(origin: str, destination: str, response_access_token: s
 
 def cheapest_tickets(origin_country_code: str, destination_country_code: str, depart_date: str, arrival_date: str):
     cheapest_tickets_url = "https://travelpayouts-travelpayouts-flight-data-v1.p.rapidapi.com/v1/prices/cheap"
-    data_code = {"origin": "SIN", "page": "None",
-                 "currency": "USD", "destination": "ICN"}
+    data_code = {"origin": origin_country_code, "page": "None",
+                 "currency": "USD", "destination": destination_country_code}
     headers = {
         "X-Access-Token": f'{os.getenv("TRAVELPAYOUTSAPI_KEY")}',
         "X-RapidAPI-Key": f'{os.getenv("RAPIDAPI_KEY")}',
@@ -69,8 +69,8 @@ def cheapest_tickets(origin_country_code: str, destination_country_code: str, de
 def non_stop_tickets():
     url = "https://travelpayouts-travelpayouts-flight-data-v1.p.rapidapi.com/v1/prices/direct/"
 
-    querystring = {"destination": "ICN", "origin": "SIN",
-                   "return_date": "2023-09-19", "depart_date": "2023-09-02", "currency": "RUB"}
+    querystring = {"destination": "MEL", "origin": "SIN",
+                   "return_date": "2023-09-19", "depart_date": "2023-09-02", "currency": "USD"}
 
     headers = {
         "X-Access-Token": f'{os.getenv("TRAVELPAYOUTSAPI_KEY")}',
@@ -82,5 +82,5 @@ def non_stop_tickets():
     return response
 
 
-trav_pay_cheapest_tickets = non_stop_tickets()
-print(trav_pay_cheapest_tickets.json())
+#trav_pay_cheapest_tickets = non_stop_tickets()
+#print(trav_pay_cheapest_tickets.json())

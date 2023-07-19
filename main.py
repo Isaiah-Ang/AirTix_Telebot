@@ -142,6 +142,16 @@ async def confirmation(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return END
 # cancel
 
+async def get_flights(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+
+    await query.answer()
+
+    response = flight_api.cheapest_tickets(details['origin_airport'], details['destination_airport'], '', '').json()
+
+    cheap_flight = response['data'][details['destination_airport']]['1']
+
+    await query.edit_message_text(text=f'Flight No: {cheap_flight["airline"]}{cheap_flight["flight_number"]}\nPrice: US${cheap_flight["price"]}')
 
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
@@ -203,7 +213,7 @@ if __name__ == '__main__':
                 )
             ],
             END: [
-                # CallbackQueryHandler(get_prices), pattern="^" + str(CONFIRM) + "$"
+                CallbackQueryHandler(get_flights, pattern="^" + str(CONFIRM) + "$"),
                 CallbackQueryHandler(
                     start_over_origin, pattern="^" + str(RETRY) + "$")
             ]
