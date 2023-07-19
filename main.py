@@ -147,9 +147,9 @@ async def get_flights(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await query.answer()
 
-    response = flight_api.cheapest_tickets(details['origin_airport'], details['destination_airport'], '', '').json()
+    response = flight_api.non_stop_tickets(details['origin_airport'], details['destination_airport']).json()
 
-    cheap_flight = response['data'][details['destination_airport']]['1']
+    cheap_flight = response['data'][details['destination_airport']]['0']
 
     await query.edit_message_text(text=f'Flight No: {cheap_flight["airline"]}{cheap_flight["flight_number"]}\nPrice: US${cheap_flight["price"]}')
 
