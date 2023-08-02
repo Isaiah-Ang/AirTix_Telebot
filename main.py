@@ -5,6 +5,7 @@ import logging
 import os
 from dotenv import load_dotenv, dotenv_values
 from api import flight_api, codes
+from functions import flight_response
 
 load_dotenv()
 
@@ -13,8 +14,8 @@ logging.basicConfig(
     level=logging.INFO
 )
 
-START, DESTINATION_COUNTRY, DESTINATION_CITY, SELECT_ORIGIN_AIRPORT, ORIGIN_COUNTRY, ORIGIN_CITY, SELECT_DESTINATION_AIRPORT, END, CONFIRM, RETRY = range(
-    10)
+START, DESTINATION_COUNTRY, DESTINATION_CITY, SELECT_ORIGIN_AIRPORT, ORIGIN_COUNTRY, ORIGIN_CITY, SELECT_DESTINATION_AIRPORT, END, CONFIRM, RETRY, WAIT = range(
+    11)
 
 details = {}
 
@@ -66,7 +67,8 @@ async def origin_airport(update: Update, context: ContextTypes.DEFAULT_TYPE):
     airport = codes.convert_country_code(
         details['origin_city'], details['origin_country'])
 
-    buttons = [[InlineKeyboardButton(f"{x['name']} ({x['code']})", callback_data=f"{x['code']}/{SELECT_ORIGIN_AIRPORT}")] for x in airport]
+    buttons = [[InlineKeyboardButton(
+        f"{x['name']} ({x['code']})", callback_data=f"{x['code']}/{SELECT_ORIGIN_AIRPORT}")] for x in airport]
 
     await update.message.reply_text(
         text=f'Please choose your airport',
@@ -75,14 +77,12 @@ async def origin_airport(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     return SELECT_ORIGIN_AIRPORT
 
-# async def origin_airport_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
-
 
 async def destination_country(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
 
     await query.answer()
-    #Split the callback data to retrieve the 3 digit airport code
+    # Split the callback data to retrieve the 3 digit airport code
     details['origin_airport'] = (query.data).split('/')[0]
 
     await update.callback_query.edit_message_text(
@@ -109,7 +109,8 @@ async def destination_airport(update: Update, context: ContextTypes.DEFAULT_TYPE
     airport = codes.convert_country_code(
         details['destination_city'], details['destination_country'])
 
-    buttons = [[InlineKeyboardButton(f"{x['name']} ({x['code']})", callback_data=f"{x['code']}/{SELECT_DESTINATION_AIRPORT}")] for x in airport]
+    buttons = [[InlineKeyboardButton(
+        f"{x['name']} ({x['code']})", callback_data=f"{x['code']}/{SELECT_DESTINATION_AIRPORT}")] for x in airport]
 
     await update.message.reply_text(
         text=f'Please choose your airport',
@@ -123,7 +124,7 @@ async def confirmation(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
 
     await query.answer()
-    #Split the callback data to retrieve the 3 digit airport code
+    # Split the callback data to retrieve the 3 digit airport code
     details['destination_airport'] = (query.data).split('/')[0]
 
     buttons = [
@@ -142,16 +143,29 @@ async def confirmation(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return END
 # cancel
 
+
 async def get_flights(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
 
     await query.answer()
 
-    response = flight_api.non_stop_tickets(details['origin_airport'], details['destination_airport']).json()
+    response = flight_api.skyscan_tickets(
+        details['origin_airport'], details['destination_airport'])
 
-    cheap_flight = response['data'][details['destination_airport']]['0']
+    flight_info = flight_response.format_direct_flight(response)
 
-    await query.edit_message_text(text=f'Flight No: {cheap_flight["airline"]}{cheap_flight["flight_number"]}\nPrice: US${cheap_flight["price"]}')
+    buttons = [
+        [
+            InlineKeyboardButton(
+                "Book Flight", url=flight_info['pricingOptions'][0]['items'][0]['deepLink']),
+            InlineKeyboardButton("Wait", callback_data=str(WAIT))
+        ]
+    ]
+
+    await update.callback_query.edit_message_text(text=f'Flight No: {flight_info["flightNo"]}\nPrice: SG${flight_info["pricingOptions"][0]["price"]["amount"]}', reply_markup=InlineKeyboardMarkup(buttons))
+
+    return WAIT
+
 
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
@@ -213,9 +227,13 @@ if __name__ == '__main__':
                 )
             ],
             END: [
-                CallbackQueryHandler(get_flights, pattern="^" + str(CONFIRM) + "$"),
+                CallbackQueryHandler(
+                    get_flights, pattern="^" + str(CONFIRM) + "$"),
                 CallbackQueryHandler(
                     start_over_origin, pattern="^" + str(RETRY) + "$")
+            ],
+            WAIT: [
+                # Function to get code to check price every few days
             ]
         },
         fallbacks=[CommandHandler('cancel', cancel)]

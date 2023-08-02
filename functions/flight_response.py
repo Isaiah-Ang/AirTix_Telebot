@@ -1,53 +1,62 @@
 from datetime import datetime
-import pprint
 from functions.general import *
-import sys
 
-sys.path.append("..")
 
-def format(response):
-    cheap_list = response['sortingOptions']['cheapest']
-    cheapest_flight_id = [i for i in cheap_list if i['score'] == 1][0]
+def format_direct_flight(response):
+    # Function to retrieve the cheapest direct one-way flight
+    flight_stops = response['stats']['itineraries']['stops']
+    direct_flight_cheapest_price = flight_stops['direct']['total']['minPrice']['amount']
 
-    itinerary_list = response['results']['itineraries']
-    cheapest_flight_itinerary = [value for key,value in itinerary_list.items() if key == cheapest_flight_id['itineraryId']][0]
+    all_direct_legs = {key: value for key,
+                       value in response['results']['legs'].items() if len(value['segmentIds']) == 1}
 
-    legs_list = response['results']['legs']
-    cheapest_flight_details = [value for key,value in legs_list.items() if key == cheapest_flight_id['itineraryId']][0]
+    all_direct_itineraries = {key: value for key, value in response['results']
+                              ['itineraries'].items() for i in all_direct_legs.keys() if value['legIds'][0] == i}
+
+    cheapest_itinerary = [i for i in all_direct_itineraries.values() if i['pricingOptions']
+                          [0]['price']['amount'] == direct_flight_cheapest_price][0]
+
+    cheapest_legs = [value for key, value in all_direct_legs.items(
+    ) if key == cheapest_itinerary['legIds'][0]][0]
+
+    cheapest_segments = [value for key, value in response['results']['segments'].items(
+    ) if key == cheapest_legs['segmentIds'][0]][0]
+
+    list_of_countries = response['results']['places']
+    list_of_airlines = response['results']['carriers']
 
     list_of_countries = response['results']['places']
     list_of_airlines = response['results']['carriers']
     formatted_response = {
-        'legIds': cheapest_flight_itinerary['legIds'],
-        'pricingOptions': cheapest_flight_itinerary['pricingOptions'],
+        'legIds': cheapest_itinerary['legIds'],
+        'pricingOptions': cheapest_itinerary['pricingOptions'],
         'originAirport': {
-            'originPlaceId': cheapest_flight_details['originPlaceId'],
-            'originAirportName': simple_comprehensify_dict('name', list_of_countries, cheapest_flight_details['originPlaceId']),
-            'originAirportIATA': simple_comprehensify_dict('iata', list_of_countries, cheapest_flight_details['originPlaceId'])
+            'originPlaceId': cheapest_legs['originPlaceId'],
+            'originAirportName': f"{simple_comprehensify_dict('name', list_of_countries, cheapest_legs['originPlaceId'])} Airport",
+            'originAirportIATA': simple_comprehensify_dict('iata', list_of_countries, cheapest_legs['originPlaceId'])
         },
         'destinationAirport': {
-            'destinationPlaceId': cheapest_flight_details['destinationPlaceId'],
-            'destinationAirportName': simple_comprehensify_dict('name', list_of_countries, cheapest_flight_details['destinationPlaceId']),
-            'destinationAirportIATA': simple_comprehensify_dict('iata', list_of_countries, cheapest_flight_details['destinationPlaceId'])
+            'destinationPlaceId': cheapest_legs['destinationPlaceId'],
+            'destinationAirportName': f"{simple_comprehensify_dict('name', list_of_countries, cheapest_legs['destinationPlaceId'])} Airport",
+            'destinationAirportIATA': simple_comprehensify_dict('iata', list_of_countries, cheapest_legs['destinationPlaceId'])
         },
         'operatingCarrier': {
-            'id': cheapest_flight_details['operatingCarrierIds'],
-            'name': [value['name'] for key,value in list_of_airlines.items() for i in cheapest_flight_details['operatingCarrierIds'] if key == i][0],
+            'id': cheapest_legs['operatingCarrierIds'],
+            'name': [value['name'] for key, value in list_of_airlines.items() for i in cheapest_legs['operatingCarrierIds'] if key == i][0],
         },
         'marketingCarrier': {
-            'id': cheapest_flight_details['marketingCarrierIds'],
-            'name': [value['name'] for key,value in list_of_airlines.items() for i in cheapest_flight_details['marketingCarrierIds'] if key == i][0],
+            'id': cheapest_legs['marketingCarrierIds'],
+            'name': [value['name'] for key, value in list_of_airlines.items() for i in cheapest_legs['marketingCarrierIds'] if key == i][0],
         },
-        'arrivalDateTime':{
-            # 'date': datetime.strptime(f'{cheapest_flight_details["arrivalDateTime"]["day"]}/{cheapest_flight_details["arrivalDateTime"]["month"]}/{cheapest_flight_details["arrivalDateTime"]["year"]}', '%d/%m/%Y').date(),
-            'date': convert_to_date(cheapest_flight_details['arrivalDateTime']['day'],cheapest_flight_details['arrivalDateTime']['month'],cheapest_flight_details['arrivalDateTime']['year']),
-            'time': convert_to_time(cheapest_flight_details['arrivalDateTime']['hour'],cheapest_flight_details['arrivalDateTime']['minute'],cheapest_flight_details['arrivalDateTime']['second'])
+        'arrivalDateTime': {
+            'date': convert_to_date(cheapest_legs['arrivalDateTime']['day'], cheapest_legs['arrivalDateTime']['month'], cheapest_legs['arrivalDateTime']['year']),
+            'time': convert_to_time(cheapest_legs['arrivalDateTime']['hour'], cheapest_legs['arrivalDateTime']['minute'], cheapest_legs['arrivalDateTime']['second'])
         },
-        'departureDateTime':{
-            'date': convert_to_date(cheapest_flight_details['departureDateTime']['day'],cheapest_flight_details['departureDateTime']['month'],cheapest_flight_details['departureDateTime']['year']),
-            'time': convert_to_time(cheapest_flight_details['departureDateTime']['hour'],cheapest_flight_details['departureDateTime']['minute'],cheapest_flight_details['departureDateTime']['second'])
-        }
+        'departureDateTime': {
+            'date': convert_to_date(cheapest_legs['departureDateTime']['day'], cheapest_legs['departureDateTime']['month'], cheapest_legs['departureDateTime']['year']),
+            'time': convert_to_time(cheapest_legs['departureDateTime']['hour'], cheapest_legs['departureDateTime']['minute'], cheapest_legs['departureDateTime']['second'])
+        },
+        'flightNo': f'{[value["displayCode"] for key, value in list_of_airlines.items() for i in cheapest_legs["marketingCarrierIds"] if key == i][0]} {cheapest_segments["marketingFlightNumber"]}'
     }
-    pprint.pprint(formatted_response)
 
     return formatted_response
