@@ -4,6 +4,9 @@ from functions.general import *
 
 
 def format(response):
+    list_of_countries = response['results']['places']
+    list_of_airlines = response['results']['carriers']
+
     cheap_list = response['sortingOptions']['cheapest']
     cheapest_flight_id = [i for i in cheap_list if i['score'] == 1][0]
 
@@ -25,67 +28,80 @@ def format(response):
                     for key, value in response['results']['segments'].items() if key == j}
     }
 
-    list_of_countries = response['results']['places']
-    list_of_airlines = response['results']['carriers']
+    segments = {
+        "outbound": {},
+        "inbound": {},
+    }
+
+    for key, value in cheapest_segments["outbound"].items():
+        segment = {
+            key: {
+                "flightNo": f"{[airline_value['displayCode'] for airline_key, airline_value in list_of_airlines.items() if airline_key == value['marketingCarrierId']][0]}{value['marketingFlightNumber']}",
+                "originAirport": {
+                    "name": f"{simple_comprehensify_dict('name', list_of_countries, value['originPlaceId'])} Airport",
+                    "iata": f"{simple_comprehensify_dict('iata', list_of_countries, value['originPlaceId'])}"
+                },
+                "destinationAirport": {
+                    "name": f"{simple_comprehensify_dict('name', list_of_countries, value['destinationPlaceId'])} Airport",
+                    "iata": f"{simple_comprehensify_dict('iata', list_of_countries, value['destinationPlaceId'])}"
+                },
+                "operatingCarrier": {
+                    'id': [value['operatingCarrierId']],
+                    'name': [airline_value['name'] for airline_key, airline_value in list_of_airlines.items() if airline_key == value['operatingCarrierId']],
+                },
+                'marketingCarrier': {
+                    'id': [value['marketingCarrierId']],
+                    'name': [marketing_value['name'] for marketing_key, marketing_value in list_of_airlines.items() if marketing_key == value['marketingCarrierId']],
+                },
+                'arrivalDateTime': {
+                    'date': convert_to_date(value['arrivalDateTime']['day'], value['arrivalDateTime']['month'], value['arrivalDateTime']['year']),
+                    'time': convert_to_time(value['arrivalDateTime']['hour'], value['arrivalDateTime']['minute'], value['arrivalDateTime']['second'])
+                },
+                'departureDateTime': {
+                    'date': convert_to_date(value['departureDateTime']['day'], value['departureDateTime']['month'], value['departureDateTime']['year']),
+                    'time': convert_to_time(value['departureDateTime']['hour'], value['departureDateTime']['minute'], value['departureDateTime']['second'])
+                },
+            }
+        }
+        segments['outbound'].update(segment)
+
+    for key, value in cheapest_segments["inbound"].items():
+        segment = {
+            key: {
+                "flightNo": f"{[airline_value['displayCode'] for airline_key, airline_value in list_of_airlines.items() if airline_key == value['marketingCarrierId']][0]}{value['marketingFlightNumber']}",
+                "originAirport": {
+                    "name": f"{simple_comprehensify_dict('name', list_of_countries, value['originPlaceId'])} Airport",
+                    "iata": f"{simple_comprehensify_dict('iata', list_of_countries, value['originPlaceId'])}"
+                },
+                "destinationAirport": {
+                    "name": f"{simple_comprehensify_dict('name', list_of_countries, value['destinationPlaceId'])} Airport",
+                    "iata": f"{simple_comprehensify_dict('iata', list_of_countries, value['destinationPlaceId'])}"
+                },
+                "operatingCarrier": {
+                    'id': [value['operatingCarrierId']],
+                    'name': [airline_value['name'] for airline_key, airline_value in list_of_airlines.items() if airline_key == value['operatingCarrierId']],
+                },
+                'marketingCarrier': {
+                    'id': [value['marketingCarrierId']],
+                    'name': [marketing_value['name'] for marketing_key, marketing_value in list_of_airlines.items() if marketing_key == value['marketingCarrierId']],
+                },
+                'arrivalDateTime': {
+                    'date': convert_to_date(value['arrivalDateTime']['day'], value['arrivalDateTime']['month'], value['arrivalDateTime']['year']),
+                    'time': convert_to_time(value['arrivalDateTime']['hour'], value['arrivalDateTime']['minute'], value['arrivalDateTime']['second'])
+                },
+                'departureDateTime': {
+                    'date': convert_to_date(value['departureDateTime']['day'], value['departureDateTime']['month'], value['departureDateTime']['year']),
+                    'time': convert_to_time(value['departureDateTime']['hour'], value['departureDateTime']['minute'], value['departureDateTime']['second'])
+                },
+            }
+        }
+        segments['inbound'].update(segment)
+
     # Make 2 dictionaries: 1 for outbound trip, 1 for inbound trip
     formatted_response = {
         "pricingOptions": cheapest_flight_itinerary['pricingOptions'],
-        "outbound": {
-            "legId": cheapest_flight_itinerary["legIds"][0],
-            "originAirport": {
-                "name": f"{simple_comprehensify_dict('name', list_of_countries, outbound_leg['originPlaceId'])} Airport",
-                "iata": simple_comprehensify_dict('iata', list_of_countries, outbound_leg['originPlaceId'])
-            },
-            "destinationAirport": {
-                "name": f"{simple_comprehensify_dict('name', list_of_countries, outbound_leg['destinationPlaceId'])} Airport",
-                "iata": simple_comprehensify_dict('iata', list_of_countries, outbound_leg['destinationPlaceId'])
-            },
-            'operatingCarrier': {
-                'id': [i for i in outbound_leg['operatingCarrierIds']],
-                'name': [value['name'] for key, value in list_of_airlines.items() for i in outbound_leg['operatingCarrierIds'] if key == i][0],
-            },
-            'marketingCarrier': {
-                'id': [i for i in outbound_leg['operatingCarrierIds']],
-                'name': [value['name'] for key, value in list_of_airlines.items() for i in outbound_leg['marketingCarrierIds'] if key == i][0],
-            },
-            'arrivalDateTime': {
-                'date': convert_to_date(outbound_leg['arrivalDateTime']['day'], outbound_leg['arrivalDateTime']['month'], outbound_leg['arrivalDateTime']['year']),
-                'time': convert_to_time(outbound_leg['arrivalDateTime']['hour'], outbound_leg['arrivalDateTime']['minute'], outbound_leg['arrivalDateTime']['second'])
-            },
-            'departureDateTime': {
-                'date': convert_to_date(outbound_leg['departureDateTime']['day'], outbound_leg['departureDateTime']['month'], outbound_leg['departureDateTime']['year']),
-                'time': convert_to_time(outbound_leg['departureDateTime']['hour'], outbound_leg['departureDateTime']['minute'], outbound_leg['departureDateTime']['second'])
-            },
-            'flightNos': [i['marketingFlightNumber'] for i in cheapest_segments['outbound'].values()]
-        },
-        "inbound": {
-            "legId": cheapest_flight_itinerary["legIds"][1],
-            "originAirport": {
-                "name": f"{simple_comprehensify_dict('name', list_of_countries, inbound_leg['originPlaceId'])} Airport",
-                "iata": simple_comprehensify_dict('iata', list_of_countries, inbound_leg['originPlaceId'])
-            },
-            "destinationAirport": {
-                "name": f"{simple_comprehensify_dict('name', list_of_countries, inbound_leg['destinationPlaceId'])} Airport",
-                "iata": simple_comprehensify_dict('iata', list_of_countries, inbound_leg['destinationPlaceId'])
-            },
-            'operatingCarrier': {
-                'id': [i for i in inbound_leg['operatingCarrierIds']],
-                'name': [value['name'] for key, value in list_of_airlines.items() for i in inbound_leg['operatingCarrierIds'] if key == i][0],
-            },
-            'marketingCarrier': {
-                'id': [i for i in inbound_leg['operatingCarrierIds']],
-                'name': [value['name'] for key, value in list_of_airlines.items() for i in inbound_leg['marketingCarrierIds'] if key == i][0],
-            },
-            'arrivalDateTime': {
-                'date': convert_to_date(inbound_leg['arrivalDateTime']['day'], inbound_leg['arrivalDateTime']['month'], inbound_leg['arrivalDateTime']['year']),
-                'time': convert_to_time(inbound_leg['arrivalDateTime']['hour'], inbound_leg['arrivalDateTime']['minute'], inbound_leg['arrivalDateTime']['second'])
-            },
-            'departureDateTime': {
-                'date': convert_to_date(inbound_leg['departureDateTime']['day'], inbound_leg['departureDateTime']['month'], inbound_leg['departureDateTime']['year']),
-                'time': convert_to_time(inbound_leg['departureDateTime']['hour'], inbound_leg['departureDateTime']['minute'], inbound_leg['departureDateTime']['second'])
-            },
-            'flightNos': [i['marketingFlightNumber'] for i in cheapest_segments['inbound'].values()]
-        }
+        "outbound": segments['outbound'],
+        "inbound": segments['inbound']
     }
     return (formatted_response)
 
