@@ -26,6 +26,19 @@ def skyscan_tickets(origin_airport: str, destination_airport: str):
                     "month": 12,
                     "day": 22
                 }
+            },
+                {
+                "origin_place_id": {
+                    "iata": f'{destination_airport}'
+                },
+                "destination_place_id": {
+                    "iata": f'{origin_airport}'
+                },
+                "date": {
+                    "year": 2023,
+                    "month": 12,
+                    "day": 26
+                }
             }],
             "cabinClass": "CABIN_CLASS_ECONOMY",
             "adults": 1
