@@ -152,7 +152,7 @@ async def get_flights(update: Update, context: ContextTypes.DEFAULT_TYPE):
     response = flight_api.skyscan_tickets(
         details['origin_airport'], details['destination_airport'])
 
-    flight_info = flight_response.format_direct_flight(response)
+    flight_info = flight_response.format(response)
 
     buttons = [
         [
@@ -162,7 +162,11 @@ async def get_flights(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ]
     ]
 
-    await update.callback_query.edit_message_text(text=f'Flight No: {flight_info["flightNo"]}\nPrice: SG${flight_info["pricingOptions"][0]["price"]["amount"]}', reply_markup=InlineKeyboardMarkup(buttons))
+    await context.bot.send_message(
+        chat_id=update.effective_chat.id, text=f"{flight_info['outbound']}"
+    )
+
+    await update.callback_query.edit_message_text(text=f"{flight_info['inbound']}", reply_markup=InlineKeyboardMarkup(buttons))
 
     return WAIT
 
