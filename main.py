@@ -167,7 +167,7 @@ async def confirmation(update: Update, context: ContextTypes.DEFAULT_TYPE):
             InlineKeyboardButton("Retry", callback_data=str(RETRY))
         ]
     ]
-    await update.callback_query.edit_message_text(
+    await update.message.reply_text(
         text=f'You have selected: \nFrom\n{details["origin_city"]}, {details["origin_country"]} ({details["origin_airport"]})\n\nTo\n{details["destination_city"]}, {details["destination_country"]} ({details["destination_airport"]}) on ({details["outbound_date"]}) to ({details["inbound_date"]})\nIs that correct?',
         reply_markup=InlineKeyboardMarkup(buttons)
     )
@@ -194,11 +194,35 @@ async def get_flights(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ]
     ]
 
+    outbound_text = ""
+
+    for i in flight_info['outbound'].values():
+        print(i)
+        delta = i['arrivalDateTime']['time'] - \
+            i['departureDateTime']['time']
+        sec = delta.total_seconds()
+        min = (sec / 60) / 10
+        hours = sec / (60 * 60)
+
+        outbound_text += f"{i['flightNo']}\n{i['departureDateTime']['time'].strftime('%H:%M')}\t{i['originAirport']['iata']} {i['originAirport']['name']}\n{int(hours)}h{int(min)}\tLayover\n{i['arrivalDateTime']['time'].strftime('%H:%M')}\t{i['destinationAirport']['iata']} {i['destinationAirport']['name']}\n\n"
+
+    inbound_text = ""
+
+    for i in flight_info['inbound'].values():
+        print(i)
+        delta = i['arrivalDateTime']['time'] - \
+            i['departureDateTime']['time']
+        sec = delta.total_seconds()
+        min = (sec / 60) / 10
+        hours = sec / (60 * 60)
+
+        inbound_text += f"{i['flightNo']}\n{i['departureDateTime']['time'].strftime('%H:%M')}\t{i['originAirport']['iata']} {i['originAirport']['name']}\n{abs(int(hours))}h{abs(int(min))}\tLayover\n{i['arrivalDateTime']['time'].strftime('%H:%M')}\t{i['destinationAirport']['iata']} {i['destinationAirport']['name']}\n\n"
+
     await context.bot.send_message(
-        chat_id=update.effective_chat.id, text=f"{flight_info['outbound']}"
+        chat_id=update.effective_chat.id, text=f"{outbound_text}"
     )
-    print("bot reached here")
-    await update.callback_query.edit_message_text(text=f"{flight_info['inbound']}", reply_markup=InlineKeyboardMarkup(buttons))
+
+    await update.callback_query.edit_message_text(text=f"{inbound_text}", reply_markup=InlineKeyboardMarkup(buttons))
 
     return WAIT
 

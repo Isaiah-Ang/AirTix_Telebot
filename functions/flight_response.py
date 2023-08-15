@@ -103,6 +103,7 @@ def format(response):
         "outbound": segments['outbound'],
         "inbound": segments['inbound']
     }
+
     return (formatted_response)
 
 
