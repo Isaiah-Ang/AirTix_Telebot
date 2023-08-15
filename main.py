@@ -14,7 +14,7 @@ logging.basicConfig(
     level=logging.INFO
 )
 
-START, DESTINATION_COUNTRY, DESTINATION_CITY, SELECT_ORIGIN_AIRPORT, ORIGIN_COUNTRY, ORIGIN_CITY, SELECT_DESTINATION_AIRPORT, DEPART_DATE, RETURN_DATE, END, CONFIRM, RETRY, WAIT = range(
+START, DESTINATION_COUNTRY, DESTINATION_CITY, SELECT_ORIGIN_AIRPORT, ORIGIN_COUNTRY, ORIGIN_CITY, SELECT_DESTINATION_AIRPORT, END, CONFIRM, RETRY, WAIT, OUTBOUND_DATE, INBOUND_DATE = range(
     13)
 
 details = {}
@@ -24,7 +24,7 @@ details = {}
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await context.bot.send_message(
-        chat_id=update.effective_chat.id, text="I'm a bot, please talk to me!"
+        chat_id=update.effective_chat.id, text="I'm a bot, please talk to me! type /new to use this bot"
     )
 
 # country_select
@@ -43,15 +43,16 @@ async def start_over_origin(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await query.answer()
 
-    await query.edit_message_text(
+    await query.message.reply_text(
         text="Input your origin country"
     )
 
     return ORIGIN_COUNTRY
 
 
-async def origin_city(update: Update, context: CallbackContext):
+async def origin_city(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text
+    print("origin city", text)
     details['origin_country'] = text
     await update.message.reply_text(
         text="Input your origin city"
@@ -63,19 +64,31 @@ async def origin_city(update: Update, context: CallbackContext):
 async def origin_airport(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text
     details['origin_city'] = text
+    try:
+        airport = codes.convert_country_code(
+            details['origin_city'], details['origin_country'])
 
-    airport = codes.convert_country_code(
-        details['origin_city'], details['origin_country'])
+        buttons = [[InlineKeyboardButton(
+            f"{x['name']} ({x['code']})", callback_data=f"{x['code']}/{SELECT_ORIGIN_AIRPORT}")] for x in airport]
 
-    buttons = [[InlineKeyboardButton(
-        f"{x['name']} ({x['code']})", callback_data=f"{x['code']}/{SELECT_ORIGIN_AIRPORT}")] for x in airport]
+        await update.message.reply_text(
+            text=f'Please choose your airport',
+            reply_markup=InlineKeyboardMarkup(buttons)
+        )
 
-    await update.message.reply_text(
-        text=f'Please choose your airport',
-        reply_markup=InlineKeyboardMarkup(buttons)
-    )
+        return SELECT_ORIGIN_AIRPORT
+    except:
 
-    return SELECT_ORIGIN_AIRPORT
+        buttons = [
+            [
+                InlineKeyboardButton("Retry", callback_data=str(RETRY))
+            ]
+        ]
+        await update.message.reply_text(
+            text="No city or country found, try again",
+            reply_markup=InlineKeyboardMarkup(buttons)
+        )
+        return END
 
 
 async def destination_country(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -92,7 +105,7 @@ async def destination_country(update: Update, context: ContextTypes.DEFAULT_TYPE
     return DESTINATION_COUNTRY
 
 
-async def destination_city(update: Update, context: CallbackContext):
+async def destination_city(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text
     details['destination_country'] = text
     await update.message.reply_text(
@@ -120,12 +133,31 @@ async def destination_airport(update: Update, context: ContextTypes.DEFAULT_TYPE
     return SELECT_DESTINATION_AIRPORT
 
 
-async def confirmation(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def get_outbound_date(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
-
     await query.answer()
-    # Split the callback data to retrieve the 3 digit airport code
     details['destination_airport'] = (query.data).split('/')[0]
+    await update.callback_query.edit_message_text(
+        text="Input your departure date in YYYY-MM-DD"
+    )
+
+    return OUTBOUND_DATE
+
+
+async def get_inbound_date(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    text = update.message.text
+    details["outbound_date"] = text
+
+    await update.message.reply_text(
+        text=f'Input your returning date in YYYY-MM-DD'
+    )
+
+    return INBOUND_DATE
+
+
+async def confirmation(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    text = update.message.text
+    details['inbound_date'] = text
 
     buttons = [
         [
@@ -136,7 +168,7 @@ async def confirmation(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ]
     ]
     await update.callback_query.edit_message_text(
-        text=f'You have selected: \nFrom\n{details["origin_city"]}, {details["origin_country"]} ({details["origin_airport"]})\n\nTo\n{details["destination_city"]}, {details["destination_country"]} ({details["destination_airport"]})\nIs that correct?',
+        text=f'You have selected: \nFrom\n{details["origin_city"]}, {details["origin_country"]} ({details["origin_airport"]})\n\nTo\n{details["destination_city"]}, {details["destination_country"]} ({details["destination_airport"]}) on ({details["outbound_date"]}) to ({details["inbound_date"]})\nIs that correct?',
         reply_markup=InlineKeyboardMarkup(buttons)
     )
 
@@ -165,7 +197,7 @@ async def get_flights(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await context.bot.send_message(
         chat_id=update.effective_chat.id, text=f"{flight_info['outbound']}"
     )
-
+    print("bot reached here")
     await update.callback_query.edit_message_text(text=f"{flight_info['inbound']}", reply_markup=InlineKeyboardMarkup(buttons))
 
     return WAIT
@@ -226,8 +258,22 @@ if __name__ == '__main__':
             ],
             SELECT_DESTINATION_AIRPORT: [
                 CallbackQueryHandler(
-                    confirmation, pattern="^[a-zA-Z]{3}\/" +
+                    get_outbound_date, pattern="^[a-zA-Z]{3}\/" +
                     str(SELECT_DESTINATION_AIRPORT) + "$"
+                )
+            ],
+            OUTBOUND_DATE: [
+                MessageHandler(
+                    filters.TEXT & ~(filters.COMMAND |
+                                     filters.Regex("^Done$")),
+                    get_inbound_date
+                )
+            ],
+            INBOUND_DATE: [
+                MessageHandler(
+                    filters.TEXT & ~(filters.COMMAND |
+                                     filters.Regex("^Done$")),
+                    confirmation
                 )
             ],
             END: [

@@ -54,3 +54,12 @@ def skyscan_tickets(origin_airport: str, destination_airport: str):
     data = response.json()['content']
 
     return data
+
+
+def save_data_to_py_file(file_path):
+    data = skyscan_tickets("SIN", "LHR")
+    with open(file_path, 'w') as py_file:
+        py_file.write(f"data = {json.dumps(data, indent=4)}\n")
+
+
+# save_data_to_py_file("testingfile.py")
