@@ -181,14 +181,20 @@ async def confirmation(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def get_flights(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
+    chat_id = update.effective_message.chat_id
+    print(f"this is chat id: {chat_id}")
 
     await query.answer()
+<<<<<<< feat/get_flight_offers
 
     # Store chat ID together with details list
     user_details[update.effective_chat.id] = details
 
     print(user_details)
 
+=======
+    print(f"this is details: {details}")
+>>>>>>> feat: added in a template code for job schedule
     response = flight_api.skyscan_tickets(
         details['origin_airport'], details['destination_airport'])
 
@@ -229,6 +235,63 @@ async def get_flights(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return WAIT
 
 
+async def daily_notification(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat_id = update.effective_message.chat_id
+
+    context.job_queue.run_repeating(
+        prompt_repeating_flight, 10, name=str(chat_id), chat_id=chat_id)
+
+
+async def prompt_repeating_flight(context: ContextTypes.DEFAULT_TYPE) -> None:
+    job = context.job
+    print(f"this is job{job.chat_id}")
+    response = flight_api.skyscan_tickets(
+        details['origin_airport'], details['destination_airport'])
+
+    outbound_text = ""
+
+    flight_info = flight_response.format(response)
+    for i in flight_info['outbound'].values():
+        delta = i['arrivalDateTime']['time'] - \
+            i['departureDateTime']['time']
+        sec = delta.total_seconds()
+        min = (sec / 60) / 10
+        hours = sec / (60 * 60)
+
+        outbound_text += f"{i['flightNo']}\n{i['departureDateTime']['time'].strftime('%H:%M')}\t{i['originAirport']['iata']} {i['originAirport']['name']}\n{int(hours)}h{int(min)}\tLayover\n{i['arrivalDateTime']['time'].strftime('%H:%M')}\t{i['destinationAirport']['iata']} {i['destinationAirport']['name']}\n\n"
+
+    inbound_text = ""
+
+    for i in flight_info['inbound'].values():
+        delta = i['arrivalDateTime']['time'] - \
+            i['departureDateTime']['time']
+        sec = delta.total_seconds()
+        min = (sec / 60) / 10
+        hours = sec / (60 * 60)
+
+        inbound_text += f"{i['flightNo']}\n{i['departureDateTime']['time'].strftime('%H:%M')}\t{i['originAirport']['iata']} {i['originAirport']['name']}\n{abs(int(hours))}h{abs(int(min))}\tLayover\n{i['arrivalDateTime']['time'].strftime('%H:%M')}\t{i['destinationAirport']['iata']} {i['destinationAirport']['name']}\n\n"
+
+    await context.bot.send_message(
+        chat_id=job.chat_id, text=f"{outbound_text}"
+    )
+
+
+def remove_job_if_exist(name: str, context: ContextTypes.DEFAULT_TYPE) -> bool:
+    current_jobs = context.job_queue.get_jobs_by_name(name)
+    if not current_jobs:
+        return False
+    for job in current_jobs:
+        job.schedule_removal()
+    return True
+
+
+async def unset(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    chat_id = update.message.chat_id
+    job_removed = remove_job_if_exist(str(chat_id), context)
+    text = "Job removed" if job_removed else "You have no jobs queued"
+    await update.message.reply_text(text)
+
+
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         'Name Conversation cancelled by user. Bye. Send /new to start again')
@@ -246,6 +309,7 @@ if __name__ == '__main__':
     application = ApplicationBuilder().token(os.getenv("API_KEY")).build()
 
     application.add_handler(CommandHandler('start', start))
+    application.add_handler(CommandHandler('unset', unset))
 
     conv_handler = ConversationHandler(
         entry_points=[CommandHandler('new', origin_country)],
@@ -309,6 +373,8 @@ if __name__ == '__main__':
                     start_over_origin, pattern="^" + str(RETRY) + "$")
             ],
             WAIT: [
+                CallbackQueryHandler(
+                    daily_notification, pattern="^" + str(WAIT) + "$")
                 # Function to get code to check price every few days
             ]
         },
@@ -320,4 +386,4 @@ if __name__ == '__main__':
     # LEAVE THIS AT THE LAST TO HANDLE UNKNOWN COMMANDS
     application.add_handler(MessageHandler(filters.COMMAND, unknown))
 
-    application.run_polling()
+    application.run_polling(allowed_updates=Update.ALL_TYPES)
