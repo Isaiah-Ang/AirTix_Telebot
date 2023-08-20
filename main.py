@@ -5,6 +5,7 @@ import logging
 import os
 from dotenv import load_dotenv, dotenv_values
 from api import flight_api, codes
+from functions import flight_response
 
 load_dotenv()
 
@@ -13,8 +14,8 @@ logging.basicConfig(
     level=logging.INFO
 )
 
-START, DESTINATION_COUNTRY, DESTINATION_CITY, SELECT_ORIGIN_AIRPORT, ORIGIN_COUNTRY, ORIGIN_CITY, SELECT_DESTINATION_AIRPORT, END, CONFIRM, RETRY = range(
-    10)
+START, DESTINATION_COUNTRY, DESTINATION_CITY, SELECT_ORIGIN_AIRPORT, ORIGIN_COUNTRY, ORIGIN_CITY, SELECT_DESTINATION_AIRPORT, END, CONFIRM, RETRY, WAIT, OUTBOUND_DATE, INBOUND_DATE = range(
+    13)
 
 details = {}
 
@@ -23,7 +24,7 @@ details = {}
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await context.bot.send_message(
-        chat_id=update.effective_chat.id, text="I'm a bot, please talk to me!"
+        chat_id=update.effective_chat.id, text="I'm a bot, please talk to me! type /new to use this bot"
     )
 
 # country_select
@@ -42,15 +43,16 @@ async def start_over_origin(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await query.answer()
 
-    await query.edit_message_text(
+    await query.message.reply_text(
         text="Input your origin country"
     )
 
     return ORIGIN_COUNTRY
 
 
-async def origin_city(update: Update, context: CallbackContext):
+async def origin_city(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text
+    print("origin city", text)
     details['origin_country'] = text
     await update.message.reply_text(
         text="Input your origin city"
@@ -62,27 +64,38 @@ async def origin_city(update: Update, context: CallbackContext):
 async def origin_airport(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text
     details['origin_city'] = text
+    try:
+        airport = codes.convert_country_code(
+            details['origin_city'], details['origin_country'])
 
-    airport = codes.convert_country_code(
-        details['origin_city'], details['origin_country'])
+        buttons = [[InlineKeyboardButton(
+            f"{x['name']} ({x['code']})", callback_data=f"{x['code']}/{SELECT_ORIGIN_AIRPORT}")] for x in airport]
 
-    buttons = [[InlineKeyboardButton(f"{x['name']} ({x['code']})", callback_data=f"{x['code']}/{SELECT_ORIGIN_AIRPORT}")] for x in airport]
+        await update.message.reply_text(
+            text=f'Please choose your airport',
+            reply_markup=InlineKeyboardMarkup(buttons)
+        )
 
-    await update.message.reply_text(
-        text=f'Please choose your airport',
-        reply_markup=InlineKeyboardMarkup(buttons)
-    )
+        return SELECT_ORIGIN_AIRPORT
+    except:
 
-    return SELECT_ORIGIN_AIRPORT
-
-# async def origin_airport_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
+        buttons = [
+            [
+                InlineKeyboardButton("Retry", callback_data=str(RETRY))
+            ]
+        ]
+        await update.message.reply_text(
+            text="No city or country found, try again",
+            reply_markup=InlineKeyboardMarkup(buttons)
+        )
+        return END
 
 
 async def destination_country(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
 
     await query.answer()
-    #Split the callback data to retrieve the 3 digit airport code
+    # Split the callback data to retrieve the 3 digit airport code
     details['origin_airport'] = (query.data).split('/')[0]
 
     await update.callback_query.edit_message_text(
@@ -92,7 +105,7 @@ async def destination_country(update: Update, context: ContextTypes.DEFAULT_TYPE
     return DESTINATION_COUNTRY
 
 
-async def destination_city(update: Update, context: CallbackContext):
+async def destination_city(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text
     details['destination_country'] = text
     await update.message.reply_text(
@@ -109,7 +122,8 @@ async def destination_airport(update: Update, context: ContextTypes.DEFAULT_TYPE
     airport = codes.convert_country_code(
         details['destination_city'], details['destination_country'])
 
-    buttons = [[InlineKeyboardButton(f"{x['name']} ({x['code']})", callback_data=f"{x['code']}/{SELECT_DESTINATION_AIRPORT}")] for x in airport]
+    buttons = [[InlineKeyboardButton(
+        f"{x['name']} ({x['code']})", callback_data=f"{x['code']}/{SELECT_DESTINATION_AIRPORT}")] for x in airport]
 
     await update.message.reply_text(
         text=f'Please choose your airport',
@@ -119,12 +133,31 @@ async def destination_airport(update: Update, context: ContextTypes.DEFAULT_TYPE
     return SELECT_DESTINATION_AIRPORT
 
 
-async def confirmation(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def get_outbound_date(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
-
     await query.answer()
-    #Split the callback data to retrieve the 3 digit airport code
     details['destination_airport'] = (query.data).split('/')[0]
+    await update.callback_query.edit_message_text(
+        text="Input your departure date in YYYY-MM-DD"
+    )
+
+    return OUTBOUND_DATE
+
+
+async def get_inbound_date(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    text = update.message.text
+    details["outbound_date"] = text
+
+    await update.message.reply_text(
+        text=f'Input your returning date in YYYY-MM-DD'
+    )
+
+    return INBOUND_DATE
+
+
+async def confirmation(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    text = update.message.text
+    details['inbound_date'] = text
 
     buttons = [
         [
@@ -134,13 +167,64 @@ async def confirmation(update: Update, context: ContextTypes.DEFAULT_TYPE):
             InlineKeyboardButton("Retry", callback_data=str(RETRY))
         ]
     ]
-    await update.callback_query.edit_message_text(
-        text=f'You have selected: \nFrom\n{details["origin_city"]}, {details["origin_country"]} ({details["origin_airport"]})\n\nTo\n{details["destination_city"]}, {details["destination_country"]} ({details["destination_airport"]})\nIs that correct?',
+    await update.message.reply_text(
+        text=f'You have selected: \nFrom\n{details["origin_city"]}, {details["origin_country"]} ({details["origin_airport"]})\n\nTo\n{details["destination_city"]}, {details["destination_country"]} ({details["destination_airport"]}) on ({details["outbound_date"]}) to ({details["inbound_date"]})\nIs that correct?',
         reply_markup=InlineKeyboardMarkup(buttons)
     )
 
     return END
 # cancel
+
+
+async def get_flights(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+
+    await query.answer()
+
+    response = flight_api.skyscan_tickets(
+        details['origin_airport'], details['destination_airport'])
+
+    flight_info = flight_response.format(response)
+
+    buttons = [
+        [
+            InlineKeyboardButton(
+                "Book Flight", url=flight_info['pricingOptions'][0]['items'][0]['deepLink']),
+            InlineKeyboardButton("Wait", callback_data=str(WAIT))
+        ]
+    ]
+
+    outbound_text = ""
+
+    for i in flight_info['outbound'].values():
+        print(i)
+        delta = i['arrivalDateTime']['time'] - \
+            i['departureDateTime']['time']
+        sec = delta.total_seconds()
+        min = (sec / 60) / 10
+        hours = sec / (60 * 60)
+
+        outbound_text += f"{i['flightNo']}\n{i['departureDateTime']['time'].strftime('%H:%M')}\t{i['originAirport']['iata']} {i['originAirport']['name']}\n{int(hours)}h{int(min)}\tLayover\n{i['arrivalDateTime']['time'].strftime('%H:%M')}\t{i['destinationAirport']['iata']} {i['destinationAirport']['name']}\n\n"
+
+    inbound_text = ""
+
+    for i in flight_info['inbound'].values():
+        print(i)
+        delta = i['arrivalDateTime']['time'] - \
+            i['departureDateTime']['time']
+        sec = delta.total_seconds()
+        min = (sec / 60) / 10
+        hours = sec / (60 * 60)
+
+        inbound_text += f"{i['flightNo']}\n{i['departureDateTime']['time'].strftime('%H:%M')}\t{i['originAirport']['iata']} {i['originAirport']['name']}\n{abs(int(hours))}h{abs(int(min))}\tLayover\n{i['arrivalDateTime']['time'].strftime('%H:%M')}\t{i['destinationAirport']['iata']} {i['destinationAirport']['name']}\n\n"
+
+    await context.bot.send_message(
+        chat_id=update.effective_chat.id, text=f"{outbound_text}"
+    )
+
+    await update.callback_query.edit_message_text(text=f"{inbound_text}", reply_markup=InlineKeyboardMarkup(buttons))
+
+    return WAIT
 
 
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -198,14 +282,32 @@ if __name__ == '__main__':
             ],
             SELECT_DESTINATION_AIRPORT: [
                 CallbackQueryHandler(
-                    confirmation, pattern="^[a-zA-Z]{3}\/" +
+                    get_outbound_date, pattern="^[a-zA-Z]{3}\/" +
                     str(SELECT_DESTINATION_AIRPORT) + "$"
                 )
             ],
+            OUTBOUND_DATE: [
+                MessageHandler(
+                    filters.TEXT & ~(filters.COMMAND |
+                                     filters.Regex("^Done$")),
+                    get_inbound_date
+                )
+            ],
+            INBOUND_DATE: [
+                MessageHandler(
+                    filters.TEXT & ~(filters.COMMAND |
+                                     filters.Regex("^Done$")),
+                    confirmation
+                )
+            ],
             END: [
-                # CallbackQueryHandler(get_prices), pattern="^" + str(CONFIRM) + "$"
+                CallbackQueryHandler(
+                    get_flights, pattern="^" + str(CONFIRM) + "$"),
                 CallbackQueryHandler(
                     start_over_origin, pattern="^" + str(RETRY) + "$")
+            ],
+            WAIT: [
+                # Function to get code to check price every few days
             ]
         },
         fallbacks=[CommandHandler('cancel', cancel)]

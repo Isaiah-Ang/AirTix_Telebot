@@ -1,6 +1,11 @@
 # Virtual Environment
 airenv/
 
+# Test Files
+testing.py
+testingfile.py
+testing/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
