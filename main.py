@@ -18,11 +18,14 @@ START, DESTINATION_COUNTRY, DESTINATION_CITY, SELECT_ORIGIN_AIRPORT, ORIGIN_COUN
     13)
 
 details = {}
+user_details = {}
 
 # Start file
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    print(update.effective_chat.id)
+
     await context.bot.send_message(
         chat_id=update.effective_chat.id, text="I'm a bot, please talk to me! type /new to use this bot"
     )
@@ -181,6 +184,11 @@ async def get_flights(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await query.answer()
 
+    # Store chat ID together with details list
+    user_details[update.effective_chat.id] = details
+
+    print(user_details)
+
     response = flight_api.skyscan_tickets(
         details['origin_airport'], details['destination_airport'])
 
@@ -197,7 +205,6 @@ async def get_flights(update: Update, context: ContextTypes.DEFAULT_TYPE):
     outbound_text = ""
 
     for i in flight_info['outbound'].values():
-        print(i)
         delta = i['arrivalDateTime']['time'] - \
             i['departureDateTime']['time']
         sec = delta.total_seconds()
@@ -209,7 +216,6 @@ async def get_flights(update: Update, context: ContextTypes.DEFAULT_TYPE):
     inbound_text = ""
 
     for i in flight_info['inbound'].values():
-        print(i)
         delta = i['arrivalDateTime']['time'] - \
             i['departureDateTime']['time']
         sec = delta.total_seconds()
@@ -218,11 +224,7 @@ async def get_flights(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         inbound_text += f"{i['flightNo']}\n{i['departureDateTime']['time'].strftime('%H:%M')}\t{i['originAirport']['iata']} {i['originAirport']['name']}\n{abs(int(hours))}h{abs(int(min))}\tLayover\n{i['arrivalDateTime']['time'].strftime('%H:%M')}\t{i['destinationAirport']['iata']} {i['destinationAirport']['name']}\n\n"
 
-    await context.bot.send_message(
-        chat_id=update.effective_chat.id, text=f"{outbound_text}"
-    )
-
-    await update.callback_query.edit_message_text(text=f"{inbound_text}", reply_markup=InlineKeyboardMarkup(buttons))
+    await update.callback_query.edit_message_text(text=f"Outbound\n{outbound_text}\n\nInbound\n{inbound_text}", reply_markup=InlineKeyboardMarkup(buttons))
 
     return WAIT
 
