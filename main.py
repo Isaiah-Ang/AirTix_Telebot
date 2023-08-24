@@ -6,6 +6,7 @@ import os
 from dotenv import load_dotenv, dotenv_values
 from api import flight_api, codes
 from functions import flight_response
+from datetime import datetime, date, time, timezone
 
 load_dotenv()
 
@@ -14,8 +15,8 @@ logging.basicConfig(
     level=logging.INFO
 )
 
-START, DESTINATION_COUNTRY, DESTINATION_CITY, SELECT_ORIGIN_AIRPORT, ORIGIN_COUNTRY, ORIGIN_CITY, SELECT_DESTINATION_AIRPORT, END, CONFIRM, RETRY, WAIT, OUTBOUND_DATE, INBOUND_DATE = range(
-    13)
+START, DESTINATION_COUNTRY, DESTINATION_CITY, SELECT_ORIGIN_AIRPORT, ORIGIN_COUNTRY, ORIGIN_CITY, SELECT_DESTINATION_AIRPORT, END, CONFIRM, RETRY, CHOOSE, WAIT, OUTBOUND_DATE, INBOUND_DATE = range(
+    14)
 
 details = {}
 user_details = {}
@@ -24,8 +25,6 @@ user_details = {}
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    print(update.effective_chat.id)
-
     await context.bot.send_message(
         chat_id=update.effective_chat.id, text="I'm a bot, please talk to me! type /new to use this bot"
     )
@@ -74,6 +73,18 @@ async def origin_airport(update: Update, context: ContextTypes.DEFAULT_TYPE):
         buttons = [[InlineKeyboardButton(
             f"{x['name']} ({x['code']})", callback_data=f"{x['code']}/{SELECT_ORIGIN_AIRPORT}")] for x in airport]
 
+        if len(buttons) == 0:
+            buttons = [
+                [
+                    InlineKeyboardButton(
+                        "Retry", callback_data=str(RETRY))
+                ]
+            ]
+            await update.message.reply_text(
+                text="No airport found, please try another city",
+                reply_markup=InlineKeyboardMarkup(buttons)
+            )
+            return END
         await update.message.reply_text(
             text=f'Please choose your airport',
             reply_markup=InlineKeyboardMarkup(buttons)
@@ -108,6 +119,18 @@ async def destination_country(update: Update, context: ContextTypes.DEFAULT_TYPE
     return DESTINATION_COUNTRY
 
 
+async def start_over_destination(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+
+    await query.answer()
+
+    await query.message.reply_text(
+        text="Input your destination country"
+    )
+
+    return DESTINATION_COUNTRY
+
+
 async def destination_city(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text
     details['destination_country'] = text
@@ -121,19 +144,43 @@ async def destination_city(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def destination_airport(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text
     details['destination_city'] = text
+    try:
+        airport = codes.convert_country_code(
+            details['destination_city'], details['destination_country'])
 
-    airport = codes.convert_country_code(
-        details['destination_city'], details['destination_country'])
+        buttons = [[InlineKeyboardButton(
+            f"{x['name']} ({x['code']})", callback_data=f"{x['code']}/{SELECT_DESTINATION_AIRPORT}")] for x in airport]
 
-    buttons = [[InlineKeyboardButton(
-        f"{x['name']} ({x['code']})", callback_data=f"{x['code']}/{SELECT_DESTINATION_AIRPORT}")] for x in airport]
+        if len(buttons) == 0:
+            buttons = [
+                [
+                    InlineKeyboardButton(
+                        "Retry", callback_data=str(CHOOSE))
+                ]
+            ]
+            await update.message.reply_text(
+                text="No airport found, please try another city",
+                reply_markup=InlineKeyboardMarkup(buttons)
+            )
+            return END
+        else:
+            await update.message.reply_text(
+                text=f'Please choose your airport',
+                reply_markup=InlineKeyboardMarkup(buttons)
+            )
 
-    await update.message.reply_text(
-        text=f'Please choose your airport',
-        reply_markup=InlineKeyboardMarkup(buttons)
-    )
-
-    return SELECT_DESTINATION_AIRPORT
+            return SELECT_DESTINATION_AIRPORT
+    except:
+        buttons = [
+            [
+                InlineKeyboardButton("Retry", callback_data=str(CHOOSE))
+            ]
+        ]
+        await update.message.reply_text(
+            text="No city or country found, try again",
+            reply_markup=InlineKeyboardMarkup(buttons)
+        )
+        return END
 
 
 async def get_outbound_date(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -182,19 +229,9 @@ async def confirmation(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def get_flights(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     chat_id = update.effective_message.chat_id
-    print(f"this is chat id: {chat_id}")
 
     await query.answer()
-<<<<<<< feat/get_flight_offers
-
-    # Store chat ID together with details list
-    user_details[update.effective_chat.id] = details
-
-    print(user_details)
-
-=======
     print(f"this is details: {details}")
->>>>>>> feat: added in a template code for job schedule
     response = flight_api.skyscan_tickets(
         details['origin_airport'], details['destination_airport'])
 
@@ -204,7 +241,7 @@ async def get_flights(update: Update, context: ContextTypes.DEFAULT_TYPE):
         [
             InlineKeyboardButton(
                 "Book Flight", url=flight_info['pricingOptions'][0]['items'][0]['deepLink']),
-            InlineKeyboardButton("Wait", callback_data=str(WAIT))
+            InlineKeyboardButton("Remind me daily", callback_data=str(WAIT))
         ]
     ]
 
@@ -238,8 +275,8 @@ async def get_flights(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def daily_notification(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_message.chat_id
 
-    context.job_queue.run_repeating(
-        prompt_repeating_flight, 10, name=str(chat_id), chat_id=chat_id)
+    context.job_queue.run_daily(
+        prompt_repeating_flight, time=datetime.now(timezone.utc), days=(0, 1, 2, 3, 4, 5, 6), name=str(chat_id), chat_id=chat_id)
 
 
 async def prompt_repeating_flight(context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -272,7 +309,7 @@ async def prompt_repeating_flight(context: ContextTypes.DEFAULT_TYPE) -> None:
         inbound_text += f"{i['flightNo']}\n{i['departureDateTime']['time'].strftime('%H:%M')}\t{i['originAirport']['iata']} {i['originAirport']['name']}\n{abs(int(hours))}h{abs(int(min))}\tLayover\n{i['arrivalDateTime']['time'].strftime('%H:%M')}\t{i['destinationAirport']['iata']} {i['destinationAirport']['name']}\n\n"
 
     await context.bot.send_message(
-        chat_id=job.chat_id, text=f"{outbound_text}"
+        chat_id=job.chat_id, text=f"Outbound\n{outbound_text}\n\nInbound\n{inbound_text}"
     )
 
 
@@ -288,13 +325,13 @@ def remove_job_if_exist(name: str, context: ContextTypes.DEFAULT_TYPE) -> bool:
 async def unset(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     chat_id = update.message.chat_id
     job_removed = remove_job_if_exist(str(chat_id), context)
-    text = "Job removed" if job_removed else "You have no jobs queued"
+    text = "Cancelled daily notifications" if job_removed else "You have no jobs queued"
     await update.message.reply_text(text)
 
 
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        'Name Conversation cancelled by user. Bye. Send /new to start again')
+        'Conversation cancelled by user. Bye. Send /new to start again')
     return ConversationHandler.END
 
 # unknown
@@ -302,14 +339,14 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def unknown(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await context.bot.send_message(
-        chat_id=update.effective_chat.id, text="Sorry, I didn't understand what you are trying to say."
+        chat_id=update.effective_chat.id, text="Sorry, I didn't understand what you are trying to say. If you have started a daily notification going on, please use /cancel first"
     )
 
 if __name__ == '__main__':
     application = ApplicationBuilder().token(os.getenv("API_KEY")).build()
 
     application.add_handler(CommandHandler('start', start))
-    application.add_handler(CommandHandler('unset', unset))
+    application.add_handler(CommandHandler('remove', unset))
 
     conv_handler = ConversationHandler(
         entry_points=[CommandHandler('new', origin_country)],
@@ -370,7 +407,9 @@ if __name__ == '__main__':
                 CallbackQueryHandler(
                     get_flights, pattern="^" + str(CONFIRM) + "$"),
                 CallbackQueryHandler(
-                    start_over_origin, pattern="^" + str(RETRY) + "$")
+                    start_over_origin, pattern="^" + str(RETRY) + "$"),
+                CallbackQueryHandler(
+                    start_over_destination, pattern="^" + str(CHOOSE) + "$")
             ],
             WAIT: [
                 CallbackQueryHandler(
