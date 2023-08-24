@@ -5,7 +5,7 @@ import logging
 import os
 from dotenv import load_dotenv, dotenv_values
 from api import flight_api, codes
-from functions import flight_response
+from functions import flight_response, general
 from datetime import datetime, date, time, timezone
 
 load_dotenv()
@@ -244,28 +244,8 @@ async def get_flights(update: Update, context: ContextTypes.DEFAULT_TYPE):
             InlineKeyboardButton("Remind me daily", callback_data=str(WAIT))
         ]
     ]
-
-    outbound_text = ""
-
-    for i in flight_info['outbound'].values():
-        delta = i['arrivalDateTime']['time'] - \
-            i['departureDateTime']['time']
-        sec = delta.total_seconds()
-        min = (sec / 60) / 10
-        hours = sec / (60 * 60)
-
-        outbound_text += f"{i['flightNo']}\n{i['departureDateTime']['time'].strftime('%H:%M')}\t{i['originAirport']['iata']} {i['originAirport']['name']}\n{int(hours)}h{int(min)}\tLayover\n{i['arrivalDateTime']['time'].strftime('%H:%M')}\t{i['destinationAirport']['iata']} {i['destinationAirport']['name']}\n\n"
-
-    inbound_text = ""
-
-    for i in flight_info['inbound'].values():
-        delta = i['arrivalDateTime']['time'] - \
-            i['departureDateTime']['time']
-        sec = delta.total_seconds()
-        min = (sec / 60) / 10
-        hours = sec / (60 * 60)
-
-        inbound_text += f"{i['flightNo']}\n{i['departureDateTime']['time'].strftime('%H:%M')}\t{i['originAirport']['iata']} {i['originAirport']['name']}\n{abs(int(hours))}h{abs(int(min))}\tLayover\n{i['arrivalDateTime']['time'].strftime('%H:%M')}\t{i['destinationAirport']['iata']} {i['destinationAirport']['name']}\n\n"
+    outbound_text = general.format_message(flight_info['outbound'])
+    inbound_text = general.format_message(flight_info['inbound'])
 
     await update.callback_query.edit_message_text(text=f"Outbound\n{outbound_text}\n\nInbound\n{inbound_text}", reply_markup=InlineKeyboardMarkup(buttons))
 
@@ -285,28 +265,10 @@ async def prompt_repeating_flight(context: ContextTypes.DEFAULT_TYPE) -> None:
     response = flight_api.skyscan_tickets(
         details['origin_airport'], details['destination_airport'])
 
-    outbound_text = ""
-
     flight_info = flight_response.format(response)
-    for i in flight_info['outbound'].values():
-        delta = i['arrivalDateTime']['time'] - \
-            i['departureDateTime']['time']
-        sec = delta.total_seconds()
-        min = (sec / 60) / 10
-        hours = sec / (60 * 60)
 
-        outbound_text += f"{i['flightNo']}\n{i['departureDateTime']['time'].strftime('%H:%M')}\t{i['originAirport']['iata']} {i['originAirport']['name']}\n{int(hours)}h{int(min)}\tLayover\n{i['arrivalDateTime']['time'].strftime('%H:%M')}\t{i['destinationAirport']['iata']} {i['destinationAirport']['name']}\n\n"
-
-    inbound_text = ""
-
-    for i in flight_info['inbound'].values():
-        delta = i['arrivalDateTime']['time'] - \
-            i['departureDateTime']['time']
-        sec = delta.total_seconds()
-        min = (sec / 60) / 10
-        hours = sec / (60 * 60)
-
-        inbound_text += f"{i['flightNo']}\n{i['departureDateTime']['time'].strftime('%H:%M')}\t{i['originAirport']['iata']} {i['originAirport']['name']}\n{abs(int(hours))}h{abs(int(min))}\tLayover\n{i['arrivalDateTime']['time'].strftime('%H:%M')}\t{i['destinationAirport']['iata']} {i['destinationAirport']['name']}\n\n"
+    outbound_text = general.format_message(flight_info['outbound'])
+    inbound_text = general.format_message(flight_info['inbound'])
 
     await context.bot.send_message(
         chat_id=job.chat_id, text=f"Outbound\n{outbound_text}\n\nInbound\n{inbound_text}"
